@@ -14,7 +14,7 @@ class AuthService:
     async def create_user(self, user_data: UserCreate) -> UserResponse:
         """Register new user with hashed password"""
         serialized_data = UserSerializer.deserialize(user_data)
-        
+
         with self.driver.session() as session:
             result = session.run(
                 """
@@ -32,10 +32,16 @@ class AuthService:
                 email=serialized_data["email"],
                 password_hash=serialized_data["password_hash"]
             )
-            user_record = result.single()["u"]
-            
-            return UserSerializer.serialize(user_record)
-    
+            record = result.single()
+            if not record or "u" not in record:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Failed to create user in database"
+                )
+
+            user_node = record["u"]
+            return UserSerializer.serialize(user_node)
+
     async def authenticate_user(self, credentials: dict) -> dict:
         """Verify user credentials and return access token"""
         with self.driver.session() as session:
@@ -43,29 +49,30 @@ class AuthService:
                 "MATCH (u:User {username: $username}) RETURN u",
                 username=credentials["username"]
             )
-            user_record = result.single()["u"]
-            
-            if not user_record:
+
+            record = result.single()
+            if not record or "u" not in record:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Invalid credentials"
+                    detail="User not found"
                 )
-            
+
+            user_node = record["u"]
+
             if not bcrypt.checkpw(
                 credentials["password"].encode('utf-8'),
-                user_record["password_hash"].encode('utf-8')
+                user_node["password_hash"].encode('utf-8')
             ):
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Incorrect password"
                 )
-            
-            # Generate JWT token
+
             access_token_expires = timedelta(minutes=30)
             access_token = jwt.encode(
-                {"sub": user_record["username"]},
+                {"sub": user_node["username"]},
                 os.getenv("JWT_SECRET_KEY"),
                 algorithm=os.getenv("JWT_ALGORITHM")
             )
-            
+
             return {"access_token": access_token, "token_type": "bearer"}

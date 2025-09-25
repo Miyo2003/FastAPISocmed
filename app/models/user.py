@@ -15,10 +15,11 @@ class UserCreate(UserProfile):
     email: EmailStr
     password: str
 
+
 class UserLogin(BaseModel):
-    """Schema for user login"""
     username: str
     password: str
+
 
 class UserResponse(UserProfile):
     """Schema for returning user data"""

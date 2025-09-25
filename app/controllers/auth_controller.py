@@ -1,20 +1,18 @@
 # app/controllers/auth_controller.py
 from fastapi import APIRouter, Depends
 from fastapi.security import OAuth2PasswordRequestForm
+from fastapi import HTTPException, status
 
 from app.models.chat import MessageCreate
 from app.models.group import GroupCreate
 from app.models.notification import NotificationCreate
-from app.models.user import UserCreate
+from app.models.user import UserCreate, UserLogin
 from ..services.auth_service import AuthService
 from ..services.chat_service import ChatService
 from ..services.group_service import GroupService
 from ..services.notification_service import NotificationService
-from fastapi import HTTPException, status
 
 router = APIRouter()
-
-oauth2_scheme = OAuth2PasswordRequestForm
 
 @router.post("/register")
 async def register(user: UserCreate, auth_service: AuthService = Depends(AuthService)):
@@ -22,9 +20,9 @@ async def register(user: UserCreate, auth_service: AuthService = Depends(AuthSer
     return await auth_service.create_user(user)
 
 @router.post("/login")
-async def login(credentials: dict, auth_service: AuthService = Depends(AuthService)):
+async def login(credentials: UserLogin, auth_service: AuthService = Depends(AuthService)):
     """Authenticate user and return access token"""
-    return await auth_service.authenticate_user(credentials)
+    return await auth_service.authenticate_user(credentials.dict())
 
 @router.post("/send-message")
 async def send_message(message: MessageCreate, chat_service: ChatService = Depends(ChatService)):
